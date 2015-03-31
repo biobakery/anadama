@@ -13,7 +13,7 @@ setup(
     packages=find_packages(exclude=['ez_setup', 'tests', 'tests.*']),
     zip_safe=False,
     install_requires=[
-        'doit==0.25.0',
+        'doit',
         'networkx==1.9'
     ],
     classifiers=[

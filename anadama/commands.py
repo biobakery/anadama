@@ -22,19 +22,10 @@ from doit.cmdparse import CmdOption
 from doit.exceptions import InvalidCommand, InvalidDodoFile
 
 from . import dag
-from .runner import RUNNER_MAP
+from .runner import PAR_TYPES
 from .reporter import REPORTERS
 from .provenance import find_versions
 from .loader import PipelineLoader
-
-opt_runner = dict(
-    name    = "runner",
-    long    = "runner",
-    default = "MRunner",
-    help    = ("Runner to use for executing tasks."
-               " Choices: "+",".join(RUNNER_MAP.keys()) ),
-    type    = str
-)
 
 opt_tmpfiles = dict(
     name    = "tmpfiledir",
@@ -52,6 +43,7 @@ opt_pipeline_name = dict(
     type    = str
 )
 
+opt_reporter['type'] = REPORTERS
 opt_reporter['help'] = \
 """Choose output reporter. Available:
 'default': report output on console
@@ -72,126 +64,30 @@ class AnadamaCmdBase(DoitCmdBase):
         return [CmdOption(opt) for opt in opt_list]
 
 
-class Run(AnadamaCmdBase, DoitRun):
-    my_opts = (opt_runner, opt_pipeline_name)
 
-    def _execute(self, outfile=sys.stdout,
-                 verbosity=None, always=False, continue_=False,
-                 reporter='default', num_process=0, par_type='process',
-                 single=False, pipeline_name="Custom Pipeline"):
-        """
-        @param reporter: (str) one of provided reporters or ...
-                         (class) user defined reporter class 
-                                 (can only be specified
-                                 from DOIT_CONFIG - never from command line)
-                         (reporter instance) - only used in unittests
-        """
-        # get tasks to be executed
-        # self.control is saved on instance to be used by 'auto' command
-        self.control = TaskControl(self.task_list)
-        self.control.process(self.sel_tasks)
-
-        if single:
-            for task_name in self.sel_tasks:
-                task = self.control.tasks[task_name]
-                if task.has_subtask:
-                    for task_name in task.task_dep:
-                        sub_task = self.control.tasks[task_name]
-                        sub_task.task_dep = []
-                else:
-                    task.task_dep = []
-
-        # reporter
-        if isinstance(reporter, six.string_types):
-            if reporter not in REPORTERS:
-                msg = ("No reporter named '%s'."
-                       " Type 'doit help run' to see a list "
-                       "of available reporters.")
-                raise InvalidCommand(msg % reporter)
-            reporter_cls = REPORTERS[reporter]
-        else:
-            # user defined class
-            reporter_cls = reporter
-
-        # verbosity
-        if verbosity is None:
-            use_verbosity = Task.DEFAULT_VERBOSITY
-        else:
-            use_verbosity = verbosity
-        show_out = use_verbosity < 2 # show on error report
-
-        # outstream
-        if isinstance(outfile, six.string_types):
-            outstream = codecs.open(outfile, 'w', encoding='utf-8')
-        else: # outfile is a file-like object (like StringIO or sys.stdout)
-            outstream = outfile
-
-        # run
-        try:
-            # FIXME stderr will be shown twice in case of task error/failure
-            if isinstance(reporter_cls, type):
-                reporter_obj = reporter_cls(outstream, {'show_out':show_out,
-                                                        'show_err': True})
-            else: # also accepts reporter instances
-                reporter_obj = reporter_cls
-
-
-            run_args = [self.dep_class, self.dep_file, reporter_obj,
-                        continue_, always, verbosity]
-            RunnerClass = RUNNER_MAP.get(self.opt_values["runner"])
-            if not RunnerClass:
-                RunnerClass = self._discover_runner_class(
-                    num_process, par_type)
-
-            runner = RunnerClass(*run_args)
-            runner.pipeline_name = pipeline_name
-            return runner.run_all(self.control.task_dispatcher())
-        finally:
-            if isinstance(outfile, str):
-                outstream.close()
-
-    def _discover_runner_class(self, num_process, par_type):
-        if num_process == 0:
-            return Runner
-        else:
-            if par_type == 'process':
-                RunnerClass = MRunner
-                if MRunner.available():
-                    return partial(MRunner, num_process=num_process)
-                else:
-                    RunnerClass = MThreadRunner
-                    sys.stderr.write(
-                        "WARNING: multiprocessing module not available, " +
-                        "running in parallel using threads.")
-            elif par_type == 'thread':
-                    return partial(MThreadRunner, num_process=num_process)
-            else:
-                msg = "Invalid parallel type %s"
-                raise InvalidCommand(msg % par_type)
-
-
-
-class ListDag(Run):
-    my_opts = (opt_runner, opt_tmpfiles, opt_pipeline_name)
+class ListDag(AnadamaCmdBase, DoitRun):
+    my_opts = (opt_tmpfiles, opt_pipeline_name)
     name = "dag"
     doc_purpose = "print execution tree"
     doc_usage = "[TASK ...]"
 
 
-    def _execute(self, 
-                 verbosity=None, always=False, continue_=False,
-                 reporter='default', num_process=0,
-                 single=False, pipeline_name="Custom Pipeline",
+    def _execute(self, verbosity=None, always=False, continue_=False,
+                 reporter='default', num_process=0, single=False,
+                 pipeline_name="Custom Pipeline", tmpfiledir="/tmp",
                  **kwargs):
         # **kwargs are thrown away
-        self.opt_values['runner'] = 'jenkins'
-        dag.TMP_FILE_DIR = self.opt_values["tmpfiledir"]
-        return super(ListDag, self)._execute(outfile=sys.stdout, verbosity=verbosity,
-                                             always=always, continue_=continue_,
+        dag.TMP_FILE_DIR = tmpfiledir
+        runner = PAR_TYPES['jenkins']
+        runner.pipeline_name = pipeline_name
+        return super(ListDag, self)._execute(outfile=sys.stdout,
+                                             verbosity=verbosity,
+                                             always=always,
+                                             continue_=continue_,
                                              reporter=reporter,
-                                             num_process=num_process,
-                                             par_type="process", single=single,
-                                             pipeline_name=pipeline_name)
+                                             num_process=1,
+                                             par_type=runner,
+                                             single=single)
 
 
 class Help(DoitHelp):
@@ -208,7 +104,7 @@ class Help(DoitHelp):
         print("")
         print("  anadama help                              show help / reference")
         print("  anadama help task                         show help on task fields")
-        print("  anadama help pipeline <module.Pipeline>   show module.Pipeline help")
+        print("  anadama help pipeline <module:Pipeline>   show module.Pipeline help")
         print("  anadama help <command>                    show command usage")
         print("  anadama help <task-name>                  show task usage")
 
@@ -280,7 +176,7 @@ class BinaryProvenance(Command):
                 print binary, "\t", version
 
 
-class RunPipeline(Run):
+class RunPipeline(DoitRun):
     name = "pipeline"
     doc_purpose = "run an AnADAMA pipeline"
     doc_usage = "<module.Pipeline> [options]"
@@ -288,37 +184,37 @@ class RunPipeline(Run):
     cmd_options = (opt_always, opt_continue, opt_verbosity, 
                    opt_reporter, opt_num_process, opt_single)
 
-    my_opts = (opt_runner, opt_tmpfiles, opt_pipeline_name)
+    my_opts = (opt_tmpfiles, opt_pipeline_name)
 
     def __init__(self, *args, **kwargs):
         kwargs['task_loader'] = PipelineLoader()
         super(RunPipeline, self).__init__(*args, **kwargs)
 
 
-    def execute(self, opt_values, pos_args, *args, **kwargs):
-        if not pos_args:
+    def parse_execute(self, in_args):
+        if not in_args:
             raise InvalidCommand("No pipeline specified. Try pipeline -h")
-        pipeline_name = pos_args.pop()
+        pipeline_name, in_args = in_args[0], in_args[1:]
         self._loader.pipeline_cls = pipeline_name
-
-        return super(RunPipeline, self).execute(opt_values, pos_args,
-                                                *args, **kwargs)
-
+        return super(RunPipeline, self).parse_execute(in_args)
+        
 
     def _execute(self, verbosity=None, always=False, continue_=False,
                  reporter='default', num_process=0, single=False, 
                  pipeline_name="Custom Pipeline", 
                  **kwargs):
-        # **kwargs are thrown away    
-        return super(RunPipeline, self)._execute(
-            outfile=sys.stdout, verbosity=verbosity,
-            always=always, continue_=continue_,
-            reporter=reporter,
-            num_process=num_process,
-            par_type="process", single=single,
-            pipeline_name=pipeline_name
-        )
+        # **kwargs are thrown away
+        return super(RunPipeline, self)._execute(outfile=sys.stdout,
+                                                 verbosity=verbosity,
+                                                 always=always,
+                                                 continue_=continue_,
+                                                 reporter=reporter,
+                                                 num_process=num_process,
+                                                 par_type=PAR_TYPES['process'],
+                                                 single=single)
         
+
+
 class DagPipeline(RunPipeline, ListDag):
     name = "pipeline_dag"
     doc_purpose = "print dag from pipeline"
@@ -326,4 +222,4 @@ class DagPipeline(RunPipeline, ListDag):
 
 
 
-all = (Run, ListDag, Help, BinaryProvenance, RunPipeline, DagPipeline)
+all = (ListDag, Help, BinaryProvenance, RunPipeline, DagPipeline)

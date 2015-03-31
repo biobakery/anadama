@@ -1,7 +1,8 @@
 import os
 import sys
 
-from doit.runner import Runner, MRunner, MThreadRunner
+from doit.runner import MRunner
+from doit.cmd_run import PAR_TYPES
 from doit.dependency import get_file_md5
 
 import networkx
@@ -9,7 +10,7 @@ import networkx
 from . import dag
 from .util import serialize
 
-class JenkinsRunner(Runner):
+class JenkinsRunner(MRunner):
     
     def _cached_tasks(self, nodes, tasks_dict):
         for node in nodes:
@@ -73,9 +74,5 @@ class JenkinsRunner(Runner):
         return serialize({ key: nodes }, to_fp=sys.stdout)
 
 
-RUNNER_MAP = {
-    'jenkins': JenkinsRunner,
-    'mrunner': MRunner,
-    'runner': Runner,
-    'mthreadrunner': MThreadRunner
-}
+PAR_TYPES['jenkins'] = JenkinsRunner
+
