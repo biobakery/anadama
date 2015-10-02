@@ -9,6 +9,8 @@ from doit.exceptions import InvalidCommand
 from .util import filespec, matcher
 from .pipelines import Pipeline
         
+import pkg_resources
+        
 opt_pipeline_argument = { 
     "name"    : "pipeline_arg",
     "long"    : "pipeline_arg",
@@ -270,18 +272,32 @@ class PipelineLoader(TaskLoader):
 
     @staticmethod
     def _import(pipeline_name):
+        
+        # look for the pipeline as an entry point
+        pipeline_attribute=None
         try:
-            mod, pipeline_name = re.split(RE_COLON, pipeline_name, 1)
-            module = importlib.import_module(mod)
-            return getattr(module, pipeline_name)
-        except (ImportError, AttributeError) as e:
-            raise InvalidCommand(e.message)
-        except ValueError:
-            raise InvalidCommand(
-                "Unable to understand module name. "
-                "Try something like 'anadama_workflows.pipelines:WGSPipeline'"
-            )
+            # check for an entry point that matches the name, ignore case
+            for entry_point in pkg_resources.iter_entry_points("anadama.pipeline"):
+                if entry_point.name.lower() == "."+pipeline_name.lower():
+                    pipeline_attribute=entry_point.load()
+                    break
+        except (StopIteration, ImportError):
+            pipeline_attribute=None
+        
+        if not pipeline_attribute:
+            try:
+                mod, pipeline_name = re.split(RE_COLON, pipeline_name, 1)
+                module = importlib.import_module(mod)
+                pipeline_attribute = getattr(module, pipeline_name)
+            except (ImportError, AttributeError) as e:
+                raise InvalidCommand(e.message)
+            except ValueError:
+                raise InvalidCommand(
+                    "Unable to understand module name. "
+                    "Try something like 'anadama_workflows.pipelines:WGSPipeline'"
+                )
 
+        return pipeline_attribute
 
     @staticmethod
     def _init_pipeline(cls, args, kwargs):
