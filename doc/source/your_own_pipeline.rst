@@ -4,10 +4,10 @@
 Using Existing Pipelines and making your own
 ############################################
 
-Some pipelines already written. These pipelines may be useful to you
-outright, or they may serve as an example for writing your own
-pipelines. Some existing pipelines are in the ``anadama_workflows``
-module
+Some pipelines have already been written. These pipelines may be
+useful to you outright, or they may serve as an example for writing
+your own pipelines. Some existing pipelines are in the
+``anadama_workflows`` module.
 
   * :py:class:`anadama_workflows.pipelines.wgs.WGSPipeline`
   * :py:class:`anadama_workflows.pipelines.sixteen.SixteenSPipeline`
@@ -70,6 +70,21 @@ Here's an example usage::
 
   $ anadama
   ...
+
+Passing settings via the directory skeleton
+___________________________________________
+
+In the course of your work you may find it necessary to pass in a
+collection of settings for your pipelines as needed.  You can use the
+following procedure::
+
+  1) Execute "anadama skeleton WGS" to create the hierarchy of directories.
+  2) Under the top-level directory, edit "input/_options/decontaminate.txt"
+     to include the location(s) of the database(s), as indicated below:
+     
+     reference-db:
+     - /path/to/my/db1
+     - /path/to/my/db2
 
 
 .. _yaml: http://yaml.org/spec/1.1/#id857168
@@ -168,6 +183,17 @@ to specify the main pipeline. Here's an example::
 
   -A anadama_workflows.pipelines:VisualizationPipeline
 
+Passing settings via command line
+_________________________________
+
+In the course of your work you may find it necessary to pass in a
+collection of settings for your pipelines as needed.  You can use the
+following command line syntax::
+
+  -o 'decontaminate.reference-db: /path/to/my/db'
+
+where -o is the pipeline option and the key-value entry points to the
+location of the database.
 
 Putting it all together
 _______________________
