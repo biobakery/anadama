@@ -14,14 +14,10 @@ To start working with the new features of AnADAMA, use the ``v2`` branch.
 
 ::
 
-  $ git clone https://bitbucket.org/biobakery/anadama.git
+  $ git clone https://github.com/biobakery/anadama.git
   $ cd anadama
   $ git checkout v2
   $ python setup.py install
-
-
-Documentation for version 2 can be found at the `docs site <https://huttenhower.sph.harvard.edu/docs/anadamav2/guides.html>`_.
-
 
 
 
@@ -43,41 +39,11 @@ Installation
 
 One liner::
 
-  $ pip install -e 'git+https://bitbucket.org/biobakery/anadama.git@master#egg=anadama-0.0.1'
+  $ pip install -e 'git+https://github.com/biobakery/anadama.git@master#egg=anadama-0.0.1'
 
 
 Usage
 =====
 
 Looking to use AnADAMA for microbiome sequence analysis?
-Check out the ``anadama_workflows`` repository_ over on bitbucket.
-
-Otherwise,
-
-Basic usage is covered in a presentation_ over on bitbucket.
-
-.. _presentation: http://rschwager-hsph.bitbucket.org/2014-07-11_lab-presentation/index.html#/3 
-
-
-Documentation
-=============
-
-Head on over to the docs_ site.
-
-.. _docs: http://huttenhower.sph.harvard.edu/docs/anadama/index.html
-
-How to get help
-===============
-
-Submit an issue_.
-
-.. _issue: https://bitbucket.org/biobakery/anadama/issues
-
-Workflows and pipelines written for you
-=======================================
-
-Hey, it's nice to use things that are already made!
-
-Check out the ``anadama_workflows`` repository_ over on bitbucket.
-
-.. _repository: https://bitbucket.org/biobakery/anadama_workflows
+Check out the ``anadama_workflows`` repository_ over on github.
